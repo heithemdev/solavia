@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  CANCELED
+  DELIVERED
+}
+
+enum DeliveryMode {
+  HOME
+  DESK
+}
+
+// One product: SHAYA BIO
+model Product {
+  id            String  @id
+  name          String
+  priceCentimes Int
+  baselineStock Int     @default(0)
+  version       Int     @default(0)
+  stock         Int
+  active        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+// Central business model
+model Order {
+  id             String @id @default(uuid()) @db.Uuid
+  number         Int    @unique @default(autoincrement())
+  reference      String @unique
+  idempotencyKey String @unique
+  requestHash    String
+
+  // Product and quantity
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+
+  // Frozen prices at the moment of ordering
+  productName           String
+  unitPriceCentimes     Int
+  subtotalCentimes      Int
+  deliveryPriceCentimes Int
+  totalCentimes         Int
+  currency              String @default("DZD")
+
+  // Customer
+  customerSearch String
+  firstName      String
+  lastName       String
+  phone          String @db.VarChar(10)
+
+  // Delivery
+  deliveryMode DeliveryMode
+  wilayaCode   String
+  wilayaName   String
+  communeId    String
+  communeName  String
+  address      String?
+
+  // Management
+  status          OrderStatus @default(NEW)
+  version         Int         @default(0)
+  deletedAt       DateTime?
+  trackingConsent Boolean     @default(false)
+  fbp             String?
+  fbc             String?
+  adminNote       String?
+  stockRestoredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notification AdminNotification?
+  events       IntegrationEvent[]
+
+  @@index([deletedAt, status, createdAt, id])
+  @@index([createdAt, id])
+  @@index([phone])
+  @@index([wilayaCode])
+}
+
+// Static credentials remain in environment variables
+model AdminSession {
+  subscriptions AdminPushSubscription[]
+  tokenHash     String                  @id
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime                @default(now())
+
+  @@index([expiresAt])
+}
+
+// One subscription per admin browser/device
+model AdminPushSubscription {
+  id          String         @id @default(uuid()) @db.Uuid
+  endpoint    String         @unique @db.VarChar(1024)
+  sessionHash String
+  session     AdminSession   @relation(fields: [sessionHash], references: [tokenHash], onDelete: Cascade)
+  deliveries  PushDelivery[]
+  p256dh      String
+  authSecret  String
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// One notification per order
+model AdminNotification {
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @unique @db.Uuid
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  sentAt    DateTime?
+  attempts  Int       @default(0)
+  lastError String?
+
+  createdAt DateTime @default(now())
+
+  deliveries PushDelivery[]
+}
+
+model PushDelivery {
+  id             String                @id @default(uuid()) @db.Uuid
+  notificationId String                @db.Uuid
+  notification   AdminNotification     @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  subscriptionId String                @db.Uuid
+  subscription   AdminPushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  sentAt         DateTime?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+
+  @@unique([notificationId, subscriptionId])
+}
+
+model MetaSettings {
+  id             String   @id @default("solavia")
+  pixelId        String?
+  encryptedToken String?
+  updatedAt      DateTime @updatedAt
+}
+
+model IntegrationEvent {
+  id        String    @id
+  name      String
+  orderId   String?   @db.Uuid
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  state     String    @default("PENDING")
+  attempts  Int       @default(0)
+  lastError String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([state, createdAt])
+}
+
+model DailyMetric {
+  day             DateTime @id @db.Date
+  orders          Int      @default(0)
+  revenueCentimes BigInt   @default(0)
+  visits          Int      @default(0)
+}
+
+model VisitDedup {
+  day         DateTime @db.Date
+  sessionHash String
+
+  @@id([day, sessionHash])
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

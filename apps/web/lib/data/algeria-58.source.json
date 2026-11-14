@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/wadiemendja/algeria-communes-wilayas",
+  "commit": "ebc590f655eb0bcef46c6f11d4b508ab52ce834f",
+  "source_file": "algeria-communes-58-wilayas.json",
+  "source_sha256": "ae3e7c9b480be172a591dc9d1f56c0ee3a4cb054466f17b1bac295760ed144bd",
+  "license": "MIT",
+  "wilayas": 58,
+  "communes": 1541,
+  "transformation": "Grouped by wilaya; retained Arabic names and unique commune ids only. 58-wilaya structure explicitly requested by client."
+}
