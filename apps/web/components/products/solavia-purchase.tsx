@@ -102,7 +102,7 @@ function BottleStack({
         >
           <Image
             src={`${images}${mini ? "product-small" : "product"}.webp`}
-            loading={index===0?"eager":"lazy"}
+            loading="eager"
             alt=""
             width={449}
             height={880}
@@ -476,7 +476,14 @@ export default function SolaviaPurchase() {
                 )}
                 {product && !product.stock && (
                   <p className="delivery-message">
-                    نفدت الكمية المتوفرة حاليًا
+                    نعتذر، نفدت الكمية حاليًا —{" "}
+                    <a
+                      href="https://wa.me/213792729391"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      يمكنك التواصل معنا
+                    </a>
                   </p>
                 )}
                 <button

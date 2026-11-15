@@ -1,5 +1,12 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { recordVisit } from "@/app/actions/visits";
 import type { ProductInfo } from "@/lib/store-types";
 type Store = {
@@ -55,30 +62,51 @@ export default function StorefrontProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [product, setProduct] = useState<ProductInfo | null>(null),
+  const [product, updateProduct] = useState<ProductInfo | null>(null),
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState(false),
     [pixelId, setPixelId] = useState<string | null>(null),
     [choice, setChoice] = useState<string | null>(null),
     [ready, setReady] = useState(false);
-  useEffect(() => {
+  const request = useRef<AbortController | null>(null);
+  const setProduct = useCallback((value: ProductInfo | null) => {
+    request.current?.abort();
+    updateProduct(value);
+  }, []);
+  const refresh = useCallback(() => {
+    request.current?.abort();
     const controller = new AbortController();
-    fetch("/api/storefront", { signal: controller.signal })
+    request.current = controller;
+    fetch("/api/storefront", { signal: controller.signal, cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error();
         return r.json();
       })
       .then((data) => {
-        setProduct(data.product);
+        updateProduct(data.product);
+        setError(false);
         setPixelId(data.pixelId);
         setLoaded(true);
       })
       .catch((e) => {
         if (e.name !== "AbortError") {
           setError(true);
+          updateProduct(null);
           setLoaded(true);
         }
       });
+  }, []);
+  useEffect(() => {
+    refresh();
+    const visible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const changed = (event: StorageEvent) => {
+      if (event.key === "solavia-catalog-updated") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("storage", changed);
     try {
       setChoice(localStorage.getItem("solavia-marketing"));
       const now = Date.now(),
@@ -98,8 +126,13 @@ export default function StorefrontProvider({
       sessionStorage.setItem("solavia-visit", JSON.stringify(session));
     } catch {}
     setReady(true);
-    return () => controller.abort();
-  }, []);
+    return () => {
+      request.current?.abort();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("storage", changed);
+    };
+  }, [refresh]);
   useEffect(() => {
     if (!pixelId || choice !== "yes") return;
     const eventId = `page:${crypto.randomUUID()}`;

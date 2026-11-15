@@ -67,7 +67,7 @@ export default function Dashboard({
             {data ? (
               <>
                 {data.totalOrders} commande{data.totalOrders > 1 ? "s" : ""},
-                annulations incluses · hors livraison
+                reçues · ventes confirmées/livrées, hors livraison
               </>
             ) : (
               <Skeleton />
@@ -277,6 +277,12 @@ export default function Dashboard({
               });
               if (result.error) setError(result.error);
               else {
+                try {
+                  localStorage.setItem(
+                    "solavia-catalog-updated",
+                    String(Date.now()),
+                  );
+                } catch {}
                 dialog.current?.close();
                 router.refresh();
               }

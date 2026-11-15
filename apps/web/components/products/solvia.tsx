@@ -345,10 +345,10 @@ export default function Solvia() {
           <div className="offer reveal" id="hero-order">
             <p className="price" style={{minHeight:"1.2em"}}>{product&&<><bdi>{(product.priceCentimes/100).toLocaleString("en-DZ")}</bdi><span>دج</span></>}</p>
             <p className="pack-size">عبوة من 60 كبسولة</p>
-            <a className="order-button" href="#purchase">
-              <ShoppingBag size={19} strokeWidth={1.5} /><span>اطلب عبوتك</span>
+            <a className="order-button" href={product&&(!product.active||product.stock===0)?"https://wa.me/213792729391":"#purchase"}>
+              <ShoppingBag size={19} strokeWidth={1.5} /><span>{product&&(!product.active||product.stock===0)?"تواصل معنا":"اطلب عبوتك"}</span>
             </a>
-            <p className="stock-note" style={{minHeight:"1.7em"}}>{product&&<>باقي <bdi>{product.stock}</bdi> عبوات</>}</p>
+            <p className="stock-note" style={{minHeight:"1.7em"}}>{product&&(product.stock===0||!product.active?"نعتذر، نفدت الكمية حاليًا":<>باقي <bdi>{product.stock}</bdi> عبوات</>)}</p>
           </div>
         </div>
       </section>

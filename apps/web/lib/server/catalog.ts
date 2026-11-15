@@ -5,34 +5,20 @@ import type { ProductInfo } from "@/lib/store-types";
 
 import { PRODUCT_ID } from "@/lib/order-policy";
 export { PRODUCT_ID, algeriaDay } from "@/lib/order-policy";
-const cachedProduct = unstable_cache(
-  async (): Promise<ProductInfo> => {
-    const product = await db.product.findUnique({
-      where: { id: PRODUCT_ID },
-      select: {
-        id: true,
-        name: true,
-        stock: true,
-        baselineStock: true,
-        priceCentimes: true,
-        active: true,
-        version: true,
-      },
-    });
-    if (!product) throw new Error("PRODUCT_NOT_CONFIGURED");
-    return product;
-  },
-  ["solavia-product-v2"],
-  { revalidate: 30, tags: ["solavia-product"] },
-);
 export async function getPublicProduct(): Promise<ProductInfo | null> {
-  try {
-    return await cachedProduct();
-  } catch (error) {
-    if (error instanceof Error && error.message === "PRODUCT_NOT_CONFIGURED")
-      return null;
-    throw error;
-  }
+  const product = await db.product.findUnique({
+    where: { id: PRODUCT_ID },
+    select: {
+      id: true,
+      name: true,
+      stock: true,
+      baselineStock: true,
+      priceCentimes: true,
+      active: true,
+      version: true,
+    },
+  });
+  return product;
 }
 export const getPublicPixel = unstable_cache(
   async () => {

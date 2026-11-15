@@ -1,6 +1,6 @@
 # Solavia operations
 
-The storefront is static. Price and stock load after paint from a server cache that expires after 30 seconds and is invalidated after changes. Admin pages stream their static labels and layout immediately, with skeletons only where database values are pending. No polling, heartbeat, SSE, or WebSocket runs.
+The storefront is static. Price and stock load after paint directly from PostgreSQL without a product cache. They refresh on page focus/visibility and cross-tab admin changes; checkout independently validates current database availability and price. Admin pages stream their static labels and layout immediately, with skeletons only where database values are pending. No polling, heartbeat, SSE, or WebSocket runs.
 
 ## Setup and deployment
 
@@ -14,13 +14,13 @@ Keep the encryption and VAPID keys stable across deployments. `NEXT_PUBLIC_VAPID
 
 ## Order handling
 
-Checkout reserves stock atomically, keeps immutable price snapshots, and deduplicates retries by request key. Canceling returns stock once, including canceling a delivered order. Reconfirming a canceled order reserves stock again and fails if insufficient. Deleting an undelivered order cancels it; deleting a delivered order only archives it. Restore does not silently reserve stock. Status changes use a version guard.
+New orders keep immutable price snapshots and deduplicate retries, but do not reserve stock or add sales revenue. Confirmed and delivered orders reserve stock atomically and count toward revenue. Canceling returns stock once, including canceling a delivered order. Reconfirming a canceled order reserves stock again and fails if insufficient. Deleting an undelivered order cancels it; deleting a delivered order only archives it. Restore does not silently reserve stock. Status changes use a version guard.
 
-Checkout takes a product row lock, then commits reservation, customer number, order, daily rollup, and notification/event records in one SQL statement. The client runs the pill animation for the entire request without a forced minimum delay. Push and Meta delivery begin after the response. Admins can permanently delete a trashed order through an explicit confirmation; this does not alter stock again. Daily visit counts are visible numerically as well as in the chart. The avatar menu includes PWA installation and platform-specific installation instructions when the browser has no native prompt.
+Checkout takes a product row lock to validate availability, then commits customer number, order, daily order count, and notification/event records in one SQL statement. Confirmation is the stock-reservation point. The client runs the pill animation for the entire request without a forced minimum delay. Push and Meta delivery begin after the response. Admins can permanently delete a trashed order through an explicit confirmation; this does not alter stock again. Daily visit counts are visible numerically as well as in the chart. The avatar menu includes PWA installation and platform-specific installation instructions when the browser has no native prompt.
 
 Customer numbers identify unique phone numbers and stay the same for repeat orders. The thank-you screen uses the saved receipt in client state for the customer's name and phone; it makes no extra Server Action request. The download is generated locally, and sharing never includes customer information.
 
-Dashboard revenue includes all placed orders, including cancellations, excluding shipping, as agreed. It is not collected/net revenue. The stock warning is based on 5% of the last quantity explicitly saved by the admin.
+Dashboard revenue includes confirmed/delivered orders only, excluding shipping. Cancellation subtracts that order from revenue on its original order day and returns stock only if that order had reserved it. NEW and canceled orders contribute zero revenue. The stock warning is based on 5% of the last quantity explicitly saved by the admin.
 
 ## Notifications
 

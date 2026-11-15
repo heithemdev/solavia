@@ -3,12 +3,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import wilayas from "@/lib/data/algeria-58.json";
 import { getDeliveryPrice } from "@/lib/delivery-prices";
-import {
-  normalizeSearch,
-  stockChange,
-  algeriaDay,
-  PRODUCT_ID,
-} from "@/lib/order-policy";
+import { normalizeSearch, algeriaDay, PRODUCT_ID } from "@/lib/order-policy";
 import { isAlgerianMobile, normalizePhone } from "@/lib/solavia-order";
 import type { CheckoutInput, OrderStatus, Receipt } from "@/lib/store-types";
 const hash = (value: string) =>
@@ -133,11 +128,10 @@ export async function createOrder(input: CheckoutInput) {
             ? input.fbc.slice(0, 200)
             : null;
         type DbOrder = Awaited<ReturnType<typeof db.order.findUniqueOrThrow>>;
-        // One statement saves the reservation, order, daily totals and delivery events.
+        // NEW orders validate availability but reserve inventory only on confirmation.
         const saved = await tx.$queryRaw<{ order: DbOrder }[]>`
           WITH reserved AS (
-            UPDATE "Product" SET stock=stock-${quantity},version=version+1,"updatedAt"=NOW()
-            WHERE id=${PRODUCT_ID} RETURNING id
+            SELECT id FROM "Product" WHERE id=${PRODUCT_ID}
           ), customer AS (
             INSERT INTO "Customer" (phone,number)
             SELECT ${phone},COALESCE(MAX(number),0)+1 FROM "Customer"
@@ -151,7 +145,7 @@ export async function createOrder(input: CheckoutInput) {
             FROM customer,allocated RETURNING *
           ), metric AS (
             INSERT INTO "DailyMetric" (day,orders,"revenueCentimes",visits)
-            SELECT ${day}::date,1,${subtotal}::bigint,0 FROM inserted
+            SELECT ${day}::date,1,0::bigint,0 FROM inserted
             ON CONFLICT(day) DO UPDATE SET orders="DailyMetric".orders+1,"revenueCentimes"="DailyMetric"."revenueCentimes"+EXCLUDED."revenueCentimes"
           ), notification AS (
             INSERT INTO "AdminNotification" (id,"orderId") SELECT ${notificationId}::uuid,id FROM inserted
@@ -165,8 +159,8 @@ export async function createOrder(input: CheckoutInput) {
           created: true,
           product: {
             ...product,
-            stock: product.stock - quantity,
-            version: product.version + 1,
+            stock: product.stock,
+            version: product.version,
           },
         };
       },
@@ -227,11 +221,14 @@ export async function changeOrder(
           ? "DELIVERED"
           : "CANCELED"
         : operation;
-    const delta = stockChange(order.status, next, order.quantity);
+    const reserve = next === "CONFIRMED" || next === "DELIVERED";
+    const delta =
+      (Number(order.stockReserved) - Number(reserve)) * order.quantity;
     const changed = await tx.order.updateMany({
       where: { id, version },
       data: {
         status: next,
+        stockReserved: reserve,
         version: { increment: 1 },
         deletedAt: operation === "DELETE" ? new Date() : null,
         stockRestoredAt:
@@ -250,6 +247,18 @@ export async function changeOrder(
         where: { id: order.productId },
         data: { stock: { increment: delta }, version: { increment: 1 } },
       });
+    const wasSale =
+      order.status === "CONFIRMED" || order.status === "DELIVERED";
+    const revenueDelta =
+      (Number(reserve) - Number(wasSale)) * order.subtotalCentimes;
+    if (revenueDelta) {
+      const day = algeriaDay(order.createdAt);
+      await tx.dailyMetric.upsert({
+        where: { day },
+        create: { day, revenueCentimes: BigInt(revenueDelta) },
+        update: { revenueCentimes: { increment: BigInt(revenueDelta) } },
+      });
+    }
     if (
       order.status !== next &&
       order.trackingConsent &&

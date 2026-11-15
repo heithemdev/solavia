@@ -11,9 +11,9 @@ export function stockChange(
   next: OrderStatus,
   quantity: number,
 ) {
-  if (previous === next) return 0;
-  if (next === "CANCELED") return quantity;
-  return previous === "CANCELED" ? -quantity : 0;
+  const reserved = (status: OrderStatus) =>
+    status === "CONFIRMED" || status === "DELIVERED";
+  return (Number(reserved(previous)) - Number(reserved(next))) * quantity;
 }
 export function normalizeSearch(value: string) {
   return value

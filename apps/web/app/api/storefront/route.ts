@@ -1,4 +1,5 @@
 import { getPublicProduct, getPublicPixel } from "@/lib/server/catalog";
+export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const [product, pixelId] = await Promise.all([

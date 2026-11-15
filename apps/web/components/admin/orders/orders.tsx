@@ -84,6 +84,11 @@ export default function Orders({
     try {
       const result = await updateOrder(order.id, order.version, operation);
       if (result.error) setError(result.error);
+      else {
+        try {
+          localStorage.setItem("solavia-catalog-updated", String(Date.now()));
+        } catch {}
+      }
       router.refresh();
     } catch {
       setError("La modification n’a pas été enregistrée. Réessayez");
