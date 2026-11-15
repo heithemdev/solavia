@@ -102,6 +102,7 @@ function BottleStack({
         >
           <Image
             src={`${images}${mini ? "product-small" : "product"}.webp`}
+            loading={index===0?"eager":"lazy"}
             alt=""
             width={449}
             height={880}
@@ -244,6 +245,7 @@ export default function SolaviaPurchase() {
               <div className="product-mobile" aria-hidden="true">
                 <Image
                   src={`${images}product-small.webp`}
+                  loading="eager"
                   alt=""
                   width={102}
                   height={200}

@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   icons: {
-    icon: "/images/solavia/admin/icon-192.png",
-    apple: "/images/solavia/admin/icon-192.png",
+    icon: "/images/solavia/admin/icon-192.png?v=3",
+    apple: "/images/solavia/admin/icon-192.png?v=3",
   },
 };
 export const viewport: Viewport = {

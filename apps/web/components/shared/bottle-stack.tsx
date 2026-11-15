@@ -23,7 +23,7 @@ export default function BottleStack({
           key={i}
           src={`/images/solavia/purchase/${small ? "product-small" : "product"}.webp`}
           alt=""
-          loading="lazy"
+          loading={i===0?"eager":"lazy"}
           width={449}
           height={880}
           data-visible={i < Math.min(5, quantity)}

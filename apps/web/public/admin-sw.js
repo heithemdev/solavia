@@ -59,7 +59,7 @@ self.addEventListener("push", (event) =>
         data.title || "Nouvelle commande",
         {
           body: data.body,
-          icon: "/images/solavia/admin/icon-192.png",
+          icon: "/images/solavia/admin/icon-192.png?v=3",
           badge: "/images/solavia/admin/badge.png",
           tag: data.id,
           data: { url: "/admin/orders" },
