@@ -15,6 +15,7 @@ export type ProductInfo = {
   version: number;
 };
 export type Receipt = {
+  customerNumber: number;
   reference: string;
   number: number;
   fullName: string;
@@ -57,5 +58,6 @@ export const moneyDzd = (centimes: number) =>
   new Intl.NumberFormat("fr-DZ", {
     style: "currency",
     currency: "DZD",
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(centimes / 100);

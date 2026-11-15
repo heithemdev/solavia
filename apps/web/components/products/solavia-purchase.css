@@ -58,9 +58,8 @@
 .order-pill { position:absolute; inset:0; opacity:0; transform:translate3d(var(--pill-x),0,0); }
 .order-pill img { position:absolute; left:0; top:var(--pill-y); width:24px; height:auto; transform:translate(-50%,-50%) rotate(var(--pill-turn)); }
 .preview-order[aria-busy=true] .pour-bottle { animation:bottle-pour-in .2s cubic-bezier(.22,.8,.3,1) both; }
-.preview-order[aria-busy=true] .order-pill { animation:pill-arrive .15s calc(.2s + var(--i)*.02s) ease-out both; }
-.preview-order[aria-busy=true]::after { content:''; position:absolute; right:14px; width:17px; height:17px; border:2px solid #fff5; border-top-color:#fff8dd; border-radius:50%; animation:order-wait-spin .8s .65s linear infinite; }
-@keyframes order-wait-spin { to { transform:rotate(360deg); } }
+.preview-order[aria-busy=true] .order-pill { animation:pill-loading 1.5s calc(var(--i)*.09s) ease-out infinite; }
+@keyframes pill-loading { 0% {opacity:0;transform:translate3d(0,-3px,0)} 20%,72% {opacity:1;transform:translate3d(var(--pill-x),0,0)} 100% {opacity:0;transform:translate3d(var(--pill-x),2px,0)} }
 @keyframes bottle-pour-in { from { opacity:0; transform:translate3d(-110%,-50%,0); } to { opacity:1; transform:translate3d(0,-50%,0); } }
 @keyframes pill-arrive { from { opacity:0; transform:translate3d(0,-4px,0); } to { opacity:1; transform:translate3d(var(--pill-x),0,0); } }
 .purchase-product { text-align:center; min-width:0; }

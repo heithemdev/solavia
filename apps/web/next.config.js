@@ -1,6 +1,7 @@
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   transpilePackages: ["@repo/db"],
+  logging: { serverFunctions: false },
 
   images: {
     remotePatterns: [

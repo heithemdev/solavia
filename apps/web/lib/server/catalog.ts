@@ -5,9 +5,9 @@ import type { ProductInfo } from "@/lib/store-types";
 
 import { PRODUCT_ID } from "@/lib/order-policy";
 export { PRODUCT_ID, algeriaDay } from "@/lib/order-policy";
-export const getPublicProduct = unstable_cache(
-  async (): Promise<ProductInfo | null> =>
-    db.product.findUnique({
+const cachedProduct = unstable_cache(
+  async (): Promise<ProductInfo> => {
+    const product = await db.product.findUnique({
       where: { id: PRODUCT_ID },
       select: {
         id: true,
@@ -18,10 +18,22 @@ export const getPublicProduct = unstable_cache(
         active: true,
         version: true,
       },
-    }),
-  ["solavia-product", process.env.DATABASE_SCHEMA || "public"],
+    });
+    if (!product) throw new Error("PRODUCT_NOT_CONFIGURED");
+    return product;
+  },
+  ["solavia-product-v2"],
   { revalidate: 30, tags: ["solavia-product"] },
 );
+export async function getPublicProduct(): Promise<ProductInfo | null> {
+  try {
+    return await cachedProduct();
+  } catch (error) {
+    if (error instanceof Error && error.message === "PRODUCT_NOT_CONFIGURED")
+      return null;
+    throw error;
+  }
+}
 export const getPublicPixel = unstable_cache(
   async () => {
     const settings = await db.metaSettings.findUnique({
@@ -30,7 +42,7 @@ export const getPublicPixel = unstable_cache(
     });
     return settings?.pixelId || null;
   },
-  ["solavia-pixel", process.env.DATABASE_SCHEMA || "public"],
+  ["solavia-pixel"],
   { revalidate: 300, tags: ["solavia-pixel"] },
 );
 export function invalidateProduct() {

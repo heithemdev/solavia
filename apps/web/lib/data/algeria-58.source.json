@@ -6,5 +6,5 @@
   "license": "MIT",
   "wilayas": 58,
   "communes": 1541,
-  "transformation": "Grouped by wilaya; retained Arabic names and unique commune ids only. 58-wilaya structure explicitly requested by client."
+  "transformation": "algeria-58.json: Arabic checkout zones; algeria-fr.json: server-only French names keyed by the same 1541 commune IDs"
 }

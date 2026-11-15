@@ -28,7 +28,10 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     return {
       ok: true,
       receipt: receiptOf(result.order),
-      product: await getPublicProduct(),
+      product:
+        "product" in result
+          ? result.product
+          : await getPublicProduct().catch(() => null),
       eventId: `${result.order.id}:placed`,
     };
   } catch (error) {

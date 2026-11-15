@@ -36,6 +36,7 @@ model Product {
 
 // Central business model
 model Order {
+  customerNumber Int
   id             String @id @default(uuid()) @db.Uuid
   number         Int    @unique @default(autoincrement())
   reference      String @unique
@@ -89,6 +90,11 @@ model Order {
   @@index([createdAt, id])
   @@index([phone])
   @@index([wilayaCode])
+}
+
+model Customer {
+  phone String @id @db.VarChar(10)
+  number Int @unique
 }
 
 // Static credentials remain in environment variables

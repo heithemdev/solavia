@@ -11,9 +11,11 @@ import { savePixel } from "@/app/admin/actions";
 export default function Pixel({
   pixelId,
   hasToken,
+  loading = false,
 }: {
   pixelId: string;
   hasToken: boolean;
+  loading?: boolean;
 }) {
   const [pending, start] = useTransition(),
     [message, setMessage] = useState(""),
@@ -31,6 +33,7 @@ export default function Pixel({
           className="admin-panel pixel-form"
           onSubmit={(e) => {
             e.preventDefault();
+            if (loading) return;
             const f = new FormData(e.currentTarget);
             const form = e.currentTarget;
             start(async () => {
@@ -59,6 +62,8 @@ export default function Pixel({
               Identifiant du Pixel
             </span>
             <input
+              disabled={loading}
+              className={loading ? "field-skeleton" : ""}
               name="pixelId"
               inputMode="numeric"
               pattern="[0-9]{5,30}"
@@ -82,6 +87,7 @@ export default function Pixel({
               Clé API Conversions
             </span>
             <input
+              disabled={loading}
               name="token"
               type="password"
               autoComplete="new-password"
@@ -119,7 +125,7 @@ export default function Pixel({
               {!error && <Check size={16} />} {message}
             </p>
           )}
-          <button className="admin-primary" disabled={pending}>
+          <button className="admin-primary" disabled={pending || loading}>
             {pending ? "Enregistrement…" : "Enregistrer les paramètres"}
           </button>
         </form>

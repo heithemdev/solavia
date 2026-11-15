@@ -1,7 +1,15 @@
 import { requireAdmin } from "@/lib/server/security";
 import { db } from "@/lib/db";
 import Pixel from "@/components/admin/pixel/pixel";
-export default async function Page() {
+import { Suspense } from "react";
+export default function Page() {
+  return (
+    <Suspense fallback={<Pixel pixelId="" hasToken={false} loading />}>
+      <Content />
+    </Suspense>
+  );
+}
+async function Content() {
   await requireAdmin();
   const settings = await db.metaSettings.findUnique({
     where: { id: "solavia" },

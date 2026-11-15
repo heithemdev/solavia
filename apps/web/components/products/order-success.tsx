@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Download, Share2, Copy, X, ExternalLink } from "lucide-react";
 import type { Receipt } from "@/lib/store-types";
 import "./order-success.css";
+import SolaviaLogo from "@/components/shared/solavia-logo";
 const format = (n: number) =>
   new Intl.NumberFormat("en-DZ").format(n / 100) + " دج";
 function saveBlob(blob: Blob, name: string) {
@@ -98,6 +99,11 @@ export default function OrderSuccess({
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     ref = useRef<HTMLDivElement>(null);
+  const shareDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (sharing) shareDialog.current?.showModal();
+    else shareDialog.current?.close();
+  }, [sharing]);
   useEffect(() => {
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -149,11 +155,14 @@ export default function OrderSuccess({
       ref={ref}
       tabIndex={-1}
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") {
+          if (sharing) setSharing(false);
+          else onClose();
+        }
         if (e.key === "Tab") {
-          const nodes = ref.current?.querySelectorAll<HTMLElement>(
-            "button:not(:disabled),a[href]",
-          );
+          const nodes = (
+            sharing ? shareDialog.current : ref.current
+          )?.querySelectorAll<HTMLElement>("button:not(:disabled),a[href]");
           if (!nodes?.length) return;
           const first = nodes[0]!,
             last = nodes[nodes.length - 1]!;
@@ -171,23 +180,44 @@ export default function OrderSuccess({
         <X size={22} />
       </button>
       <div className="success-inner">
-        <span className="success-brand">Solavia</span>
+        <SolaviaLogo className="success-brand" dark />
         <div className="success-check">
-          <Check size={30} />
+          <img
+            src="/images/solavia/thank-you/smile.webp"
+            alt="ابتسامة سعيدة"
+            width={82}
+            height={82}
+          />
+          <span className="success-check-badge">
+            <Check size={18} />
+          </span>
           <span className="success-sparkles" aria-hidden="true">
             {Array.from({ length: 12 }, (_, i) => (
               <i key={i} style={{ "--i": i } as CSSProperties} />
             ))}
           </span>
         </div>
-        <h2 id="success-title">شكرًا لطلبك</h2>
+        <h2 id="success-title">
+          <img
+            src="/images/solavia/thank-you/thanks.webp"
+            alt="شكرًا لطلبك"
+            width={700}
+            height={198}
+          />
+        </h2>
         <p className="success-name" lang="fr" dir="auto">
           {receipt.fullName}
         </p>
-        <p className="success-order-number">
-          تم تسجيل طلبك برقم <bdi>#{receipt.number}</bdi>
+        <p className="success-customer">
+          أنت عميلنا رقم <bdi>{receipt.customerNumber}</bdi> الذي اختار{" "}
+          <bdi lang="en">SHAYA BIO</bdi>
         </p>
-        <p className="success-next">سنتواصل معك لتأكيد تفاصيل الطلب</p>
+        <p className="success-next">
+          سنتصل بك على{" "}
+          <a href={`tel:${receipt.phone}`}>
+            <bdi>{receipt.phone}</bdi>
+          </a>
+        </p>
         <div className="success-actions">
           <button onClick={download} disabled={busy}>
             <Download size={19} />
@@ -198,71 +228,71 @@ export default function OrderSuccess({
             شارك المنتج
           </button>
         </div>
-        <button className="share-more" onClick={() => setSharing(!sharing)}>
-          خيارات المشاركة
-        </button>
-        {sharing && (
-          <div className="share-options">
-            <button onClick={share}>
-              <Share2 size={16} />
-              تطبيقات الهاتف
-            </button>
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
-            >
-              Facebook
-              <ExternalLink size={14} />
-            </a>
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href={`https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=SHAYA%20BIO`}
-            >
-              Reddit
-              <ExternalLink size={14} />
-            </a>
-            <button onClick={copy}>
-              <Copy size={16} />
-              نسخ الرابط
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  saveBlob(await card(), "solavia-share.png");
-                  setMessage(
-                    "اختر الصورة من Instagram أو Story أو TikTok، وأضف الرابط المنسوخ",
-                  );
-                  await navigator.clipboard.writeText(url);
-                } catch {
-                  setMessage("تعذر تجهيز صورة المشاركة");
-                }
-              }}
-            >
-              صورة لـ Instagram وStory وTikTok
-            </button>
-            <p>
-              لـ Messenger والتطبيقات الأخرى، اخترها من قائمة مشاركة الهاتف أو
-              انسخ الرابط
-            </p>
-          </div>
-        )}
+        <dialog
+          ref={shareDialog}
+          className="share-options"
+          aria-label="خيارات مشاركة المنتج"
+          onCancel={() => setSharing(false)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSharing(false);
+          }}
+        >
+          <button
+            className="share-close"
+            aria-label="إغلاق خيارات المشاركة"
+            onClick={() => setSharing(false)}
+          >
+            <X size={19} />
+          </button>
+          <button onClick={share}>
+            <Share2 size={16} />
+            تطبيقات الهاتف
+          </button>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
+          >
+            Facebook
+            <ExternalLink size={14} />
+          </a>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href={`https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=SHAYA%20BIO`}
+          >
+            Reddit
+            <ExternalLink size={14} />
+          </a>
+          <button onClick={copy}>
+            <Copy size={16} />
+            نسخ الرابط
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                saveBlob(await card(), "solavia-share.png");
+                setMessage(
+                  "اختر الصورة من Instagram أو Story أو TikTok، وأضف الرابط المنسوخ",
+                );
+                await navigator.clipboard.writeText(url);
+              } catch {
+                setMessage("تعذر تجهيز صورة المشاركة");
+              }
+            }}
+          >
+            صورة لـ Instagram وStory وTikTok
+          </button>
+          <p>
+            لـ Messenger والتطبيقات الأخرى، اخترها من قائمة مشاركة الهاتف أو
+            انسخ الرابط
+          </p>
+        </dialog>
         {message && (
           <p className="success-message" role="status">
             {message}
           </p>
         )}
-        <img
-          className="success-product"
-          src="/images/solavia/purchase/product-small.webp"
-          alt="عبوة SHAYA BIO"
-          width="102"
-          height="200"
-        />
-        <p className="success-reference">
-          <bdi>{receipt.reference}</bdi>
-        </p>
       </div>
     </div>
   );

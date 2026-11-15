@@ -37,8 +37,8 @@ export async function notifyOrder(orderId: string) {
           },
           JSON.stringify({
             id: notification.id,
-            title: `Nouvelle commande ${order.reference}`,
-            body: `${order.lastName} ${order.firstName} · ${order.quantity} flacon${order.quantity > 1 ? "s" : ""}`,
+            title: `${order.lastName} ${order.firstName}`,
+            body: `a commandé ${order.quantity} SHAYA BIO pour ${new Intl.NumberFormat("fr-FR").format(order.totalCentimes / 100)} DA, livraison incluse`,
             url: "/admin/orders",
           }),
           {

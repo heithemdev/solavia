@@ -10,12 +10,7 @@ import {
   Truck,
   ReceiptText,
 } from "lucide-react";
-import {
-  useRef,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-} from "react";
+import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import LocationPicker from "./location-picker";
 import dynamic from "next/dynamic";
 import { checkout } from "@/app/actions/checkout";
@@ -25,6 +20,10 @@ import {
   trackOrder,
 } from "./storefront-provider";
 import type { Receipt } from "@/lib/store-types";
+import {
+  prepareNotificationSound,
+  playNotificationSound,
+} from "@/lib/notification-audio";
 const OrderSuccess = dynamic(() => import("./order-success"));
 import wilayas from "@/lib/data/algeria-58.json";
 import {
@@ -195,14 +194,14 @@ export default function SolaviaPurchase() {
     const fingerprint = JSON.stringify(details);
     if (attempt.current.fingerprint !== fingerprint)
       attempt.current = { fingerprint, key: crypto.randomUUID() };
-    let sound: AudioContext | null = null;
-    try {
-      sound = new AudioContext();
-      sound.resume().catch(() => {});
-    } catch {}
+    prepareNotificationSound();
     setPreparing(true);
+    void import("./order-success");
+    for (const asset of ["thanks", "smile"]) {
+      const image = new window.Image();
+      image.src = `/images/solavia/thank-you/${asset}.webp`;
+    }
     setError("");
-    const minimum = new Promise((resolve) => setTimeout(resolve, 650));
     try {
       const result = await checkout({
         ...details,
@@ -211,7 +210,6 @@ export default function SolaviaPurchase() {
         fbp: consent ? marketingCookie("_fbp") : undefined,
         fbc: consent ? marketingCookie("_fbc") : undefined,
       });
-      await minimum;
       if ("product" in result) setProduct(result.product ?? null);
       if (result.ok) {
         setReceipt(result.receipt);
@@ -221,35 +219,12 @@ export default function SolaviaPurchase() {
             result.receipt.subtotalCentimes / 100,
             quantity,
           );
-        if (sound) {
-          const oscillator = sound.createOscillator(),
-            gain = sound.createGain();
-          oscillator.frequency.setValueAtTime(880, sound.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(
-            1320,
-            sound.currentTime + 0.1,
-          );
-          gain.gain.setValueAtTime(0.08, sound.currentTime);
-          gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            sound.currentTime + 0.35,
-          );
-          oscillator.connect(gain);
-          gain.connect(sound.destination);
-          oscillator.start();
-          oscillator.stop(sound.currentTime + 0.35);
-          const context = sound;
-          oscillator.onended = () => {
-            context.close();
-          };
-          sound = null;
-        }
+        void playNotificationSound();
       } else setError(result.message);
     } catch {
       setError("تعذر تأكيد حفظ الطلب، أعد المحاولة بنفس البيانات");
     } finally {
       setPreparing(false);
-      sound?.close().catch(() => {});
     }
   }
 

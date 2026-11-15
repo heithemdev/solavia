@@ -1,4 +1,5 @@
 import Navbare from "./navbare";
+import SolaviaLogo from "@/components/shared/solavia-logo";
 export default function Sidebare() {
   return (
     <aside className="admin-sidebar">
@@ -7,9 +8,8 @@ export default function Sidebare() {
         className="admin-brand"
         aria-label="Solavia administration"
       >
-        Solavia
+        <SolaviaLogo />
       </a>
-      <span className="admin-workspace">Votre espace de gestion</span>
       <Navbare />
       <a
         className="view-store"

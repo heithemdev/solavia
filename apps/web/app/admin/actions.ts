@@ -97,13 +97,13 @@ export async function saveProduct(input: {
 export async function updateOrder(
   id: string,
   version: number,
-  operation: OrderStatus | "DELETE" | "RESTORE",
+  operation: OrderStatus | "DELETE" | "RESTORE" | "PURGE",
 ) {
   await requireAdmin();
   if (
     !/^[a-f0-9-]{36}$/i.test(id) ||
     !Number.isInteger(version) ||
-    ![...ORDER_STATUSES, "DELETE", "RESTORE"].includes(operation)
+    ![...ORDER_STATUSES, "DELETE", "RESTORE", "PURGE"].includes(operation)
   )
     return { error: "Action invalide" };
   try {

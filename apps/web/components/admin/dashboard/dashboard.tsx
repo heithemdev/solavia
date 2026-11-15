@@ -15,24 +15,26 @@ import { useRouter } from "next/navigation";
 import { saveProduct } from "@/app/admin/actions";
 import { moneyDzd, type ProductInfo } from "@/lib/store-types";
 import BottleStack from "@/components/shared/bottle-stack";
+import Skeleton from "../skeleton";
 type Daily = { day: string; orders: number; revenue: number; visits: number };
 export default function Dashboard({
   data,
   product,
   days,
 }: {
-  data: { daily: Daily[]; totalOrders: number; totalRevenue: number };
-  product: ProductInfo | null;
+  data?: { daily: Daily[]; totalOrders: number; totalRevenue: number };
+  product?: ProductInfo | null;
   days: number;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     router = useRouter();
   const [pending, start] = useTransition(),
     [error, setError] = useState("");
-  const periodRevenue = data.daily.reduce((s, d) => s + d.revenue, 0),
-    visits = data.daily.reduce((s, d) => s + d.visits, 0),
-    orders = data.daily.reduce((s, d) => s + d.orders, 0),
-    maxVisits = Math.max(1, ...data.daily.map((d) => d.visits));
+  const daily = data?.daily || [];
+  const periodRevenue = daily.reduce((s, d) => s + d.revenue, 0),
+    visits = daily.reduce((s, d) => s + d.visits, 0),
+    orders = daily.reduce((s, d) => s + d.orders, 0),
+    maxVisits = Math.max(1, ...daily.map((d) => d.visits));
   const low =
     product &&
     (product.stock === 0 ||
@@ -43,7 +45,6 @@ export default function Dashboard({
       <div className="page-heading">
         <div>
           <h1>Une vue d’ensemble, simplement</h1>
-          <p>Votre activité, vos commandes et votre produit</p>
         </div>
         <div className="admin-segment" aria-label="Période">
           {[7, 30, 90].map((n) => (
@@ -61,52 +62,77 @@ export default function Dashboard({
         <article className="metric">
           <Banknote />
           <span>Ventes totales</span>
-          <strong>{moneyDzd(data.totalRevenue)}</strong>
+          <strong>{data ? moneyDzd(data.totalRevenue) : <Skeleton />}</strong>
           <small>
-            {data.totalOrders} commande{data.totalOrders > 1 ? "s" : ""},
-            annulations incluses · hors livraison
+            {data ? (
+              <>
+                {data.totalOrders} commande{data.totalOrders > 1 ? "s" : ""},
+                annulations incluses · hors livraison
+              </>
+            ) : (
+              <Skeleton />
+            )}
           </small>
         </article>
         <article className="metric">
           <TrendingUp />
           <span>Moyenne par jour</span>
-          <strong>{moneyDzd(Math.round(periodRevenue / days))}</strong>
+          <strong>
+            {data ? moneyDzd(Math.round(periodRevenue / days)) : <Skeleton />}
+          </strong>
           <small>
-            {orders} commande{orders > 1 ? "s" : ""} sur {days} jours · hors
-            livraison
+            {data ? (
+              <>
+                {orders} commande{orders > 1 ? "s" : ""} sur {days} jours · hors
+                livraison
+              </>
+            ) : (
+              <Skeleton />
+            )}
           </small>
         </article>
         <article className="metric">
           <Users />
           <span>Visites sur {days} jours</span>
-          <strong>{visits.toLocaleString("fr-DZ")}</strong>
-          <small>Une visite par session et par jour</small>
+          <strong>
+            {data ? visits.toLocaleString("fr-DZ") : <Skeleton />}
+          </strong>
         </article>
       </div>
       <div className="dashboard-lower">
         <section className="admin-panel visits-panel">
           <div className="panel-heading">
             <h2>Les visites, au fil des jours</h2>
-            <span>{days} jours</span>
+            <span>
+              {data ? (
+                <>
+                  <b>{visits.toLocaleString("fr-DZ")}</b> visites · {days} jours
+                </>
+              ) : (
+                <Skeleton />
+              )}
+            </span>
           </div>
           <div
             className="visits-chart"
             role="img"
             aria-label={`${visits} visites pendant les ${days} derniers jours`}
           >
-            {data.daily.map((d, i) => (
+            {!data && <Skeleton className="skeleton-chart" />}
+            {daily.map((d, i) => (
               <div
                 key={d.day}
                 className="chart-column"
                 title={`${d.day} : ${d.visits} visites`}
               >
+                {days <= 30 && <b className="chart-count">{d.visits}</b>}
                 <span
                   style={{
                     height: `${Math.max(2, (d.visits / maxVisits) * 100)}%`,
                   }}
                 />
                 <small>
-                  {i === 0 || i === data.daily.length - 1
+                  {i === 0 || i === daily.length - 1
                     ? new Date(d.day).toLocaleDateString("fr-DZ", {
                         day: "numeric",
                         month: "short",
@@ -116,7 +142,32 @@ export default function Dashboard({
               </div>
             ))}
           </div>
-          {visits === 0 && (
+          <details className="daily-visits">
+            <summary>Visites par jour</summary>
+            <div>
+              {data ? (
+                daily
+                  .slice()
+                  .reverse()
+                  .map((d) => (
+                    <p key={d.day}>
+                      <time dateTime={d.day}>
+                        {new Date(d.day).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </time>
+                      <strong>
+                        {d.visits} visite{d.visits > 1 ? "s" : ""}
+                      </strong>
+                    </p>
+                  ))
+              ) : (
+                <Skeleton />
+              )}
+            </div>
+          </details>
+          {data && visits === 0 && (
             <p className="chart-empty">
               Les premières visites apparaîtront ici
             </p>
@@ -132,13 +183,27 @@ export default function Dashboard({
                 dialog.current?.showModal();
               }}
               aria-label="Modifier le stock et le prix"
+              disabled={product === undefined}
             >
               <Pencil size={18} />
             </button>
           </div>
           <BottleStack quantity={1} />
           <h3>SHAYA BIO</h3>
-          {product ? (
+          {product === undefined ? (
+            <>
+              <strong className="product-price">
+                <Skeleton />
+              </strong>
+              <div className="stock-row">
+                <span>
+                  <Package size={18} />
+                  Stock disponible
+                </span>
+                <Skeleton className="skeleton-short" />
+              </div>
+            </>
+          ) : product ? (
             <>
               <strong className="product-price">
                 {moneyDzd(product.priceCentimes)}
@@ -166,7 +231,6 @@ export default function Dashboard({
             </>
           ) : (
             <>
-              <p>Ajoutez le prix et le stock réel pour ouvrir les commandes</p>
               <button
                 className="admin-primary"
                 onClick={() => dialog.current?.showModal()}

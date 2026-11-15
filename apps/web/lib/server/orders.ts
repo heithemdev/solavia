@@ -15,6 +15,7 @@ const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
 type StoredReceipt = {
+  customerNumber: number;
   reference: string;
   number: number;
   lastName: string;
@@ -32,6 +33,7 @@ type StoredReceipt = {
 };
 export function receiptOf(order: StoredReceipt): Receipt {
   return {
+    customerNumber: order.customerNumber,
     reference: order.reference,
     number: order.number,
     fullName: `${order.lastName} ${order.firstName}`,
@@ -109,90 +111,81 @@ export async function createOrder(input: CheckoutInput) {
   try {
     return await db.$transaction(
       async (tx) => {
-        const product = await tx.product.findUnique({
-          where: { id: PRODUCT_ID },
-        });
+        const products = await tx.$queryRaw<
+          import("@/lib/store-types").ProductInfo[]
+        >`SELECT id,name,stock,"baselineStock","priceCentimes",active,version FROM "Product" WHERE id=${PRODUCT_ID} FOR UPDATE`;
+        const product = products[0];
         if (!product?.active) throw new Error("UNAVAILABLE");
         if (product.priceCentimes !== input.expectedUnitPriceCentimes)
           throw new Error("PRICE_CHANGED");
-        const reserved = await tx.product.updateMany({
-          where: {
-            id: PRODUCT_ID,
-            stock: { gte: quantity },
-            priceCentimes: product.priceCentimes,
-            active: true,
+        if (product.stock < quantity) throw new Error("STOCK");
+        const id = randomUUID(),
+          notificationId = randomUUID(),
+          day = algeriaDay(),
+          subtotal = product.priceCentimes * quantity;
+        const consent = input.trackingConsent === true;
+        const fbp =
+          consent && typeof input.fbp === "string"
+            ? input.fbp.slice(0, 150)
+            : null;
+        const fbc =
+          consent && typeof input.fbc === "string"
+            ? input.fbc.slice(0, 200)
+            : null;
+        type DbOrder = Awaited<ReturnType<typeof db.order.findUniqueOrThrow>>;
+        // One statement saves the reservation, order, daily totals and delivery events.
+        const saved = await tx.$queryRaw<{ order: DbOrder }[]>`
+          WITH reserved AS (
+            UPDATE "Product" SET stock=stock-${quantity},version=version+1,"updatedAt"=NOW()
+            WHERE id=${PRODUCT_ID} RETURNING id
+          ), customer AS (
+            INSERT INTO "Customer" (phone,number)
+            SELECT ${phone},COALESCE(MAX(number),0)+1 FROM "Customer"
+            WHERE EXISTS(SELECT 1 FROM reserved)
+            ON CONFLICT (phone) DO UPDATE SET phone=EXCLUDED.phone RETURNING number
+          ), allocated AS (
+            SELECT nextval(pg_get_serial_sequence('"Order"','number'))::integer AS number
+          ), inserted AS (
+            INSERT INTO "Order" (id,number,reference,"idempotencyKey","requestHash","productId",quantity,"productName","unitPriceCentimes","subtotalCentimes","deliveryPriceCentimes","totalCentimes",currency,"customerSearch","firstName","lastName",phone,"deliveryMode","wilayaCode","wilayaName","communeId","communeName",address,"trackingConsent",fbp,fbc,"customerNumber","updatedAt")
+            SELECT ${id}::uuid,allocated.number,'SOL-'||lpad(allocated.number::text,6,'0'),${input.idempotencyKey},${requestHash},${PRODUCT_ID},${quantity},${product.name},${product.priceCentimes},${subtotal},${shipping * 100},${subtotal + shipping * 100},'DZD',${normalizeSearch(`${lastName} ${firstName} ${phone}`)},${firstName},${lastName},${phone},${input.deliveryMode}::"DeliveryMode",${wilaya.code},${wilaya.name},${commune.id},${commune.name},${address},${consent},${fbp},${fbc},customer.number,NOW()
+            FROM customer,allocated RETURNING *
+          ), metric AS (
+            INSERT INTO "DailyMetric" (day,orders,"revenueCentimes",visits)
+            SELECT ${day}::date,1,${subtotal}::bigint,0 FROM inserted
+            ON CONFLICT(day) DO UPDATE SET orders="DailyMetric".orders+1,"revenueCentimes"="DailyMetric"."revenueCentimes"+EXCLUDED."revenueCentimes"
+          ), notification AS (
+            INSERT INTO "AdminNotification" (id,"orderId") SELECT ${notificationId}::uuid,id FROM inserted
+          ), event AS (
+            INSERT INTO "IntegrationEvent" (id,name,"orderId") SELECT id::text||':placed','OrderPlaced',id FROM inserted WHERE "trackingConsent"=true
+          ) SELECT to_jsonb(inserted) AS "order" FROM inserted`;
+        const order = saved[0]!.order;
+        order.createdAt = new Date(order.createdAt);
+        return {
+          order,
+          created: true,
+          product: {
+            ...product,
+            stock: product.stock - quantity,
+            version: product.version + 1,
           },
-          data: { stock: { decrement: quantity }, version: { increment: 1 } },
-        });
-        if (!reserved.count) throw new Error("STOCK");
-        const subtotal = product.priceCentimes * quantity;
-        const order = await tx.order.create({
-          data: {
-            reference: randomUUID(),
-            idempotencyKey: input.idempotencyKey,
-            requestHash,
-            productId: PRODUCT_ID,
-            quantity,
-            productName: product.name,
-            unitPriceCentimes: product.priceCentimes,
-            subtotalCentimes: subtotal,
-            deliveryPriceCentimes: shipping * 100,
-            totalCentimes: subtotal + shipping * 100,
-            firstName,
-            lastName,
-            phone,
-            customerSearch: normalizeSearch(
-              `${lastName} ${firstName} ${phone}`,
-            ),
-            deliveryMode: input.deliveryMode,
-            wilayaCode: wilaya.code,
-            wilayaName: wilaya.name,
-            communeId: commune.id,
-            communeName: commune.name,
-            address,
-            trackingConsent: input.trackingConsent === true,
-            fbp:
-              input.trackingConsent && typeof input.fbp === "string"
-                ? input.fbp.slice(0, 150)
-                : null,
-            fbc:
-              input.trackingConsent && typeof input.fbc === "string"
-                ? input.fbc.slice(0, 200)
-                : null,
-          },
-        });
-        order.reference = `SOL-${String(order.number).padStart(6, "0")}`;
-        await tx.order.update({
-          where: { id: order.id },
-          data: { reference: order.reference },
-        });
-        await tx.dailyMetric.upsert({
-          where: { day: algeriaDay() },
-          create: {
-            day: algeriaDay(),
-            orders: 1,
-            revenueCentimes: BigInt(subtotal),
-          },
-          update: {
-            orders: { increment: 1 },
-            revenueCentimes: { increment: BigInt(subtotal) },
-          },
-        });
-        await tx.adminNotification.create({ data: { orderId: order.id } });
-        if (order.trackingConsent)
-          await tx.integrationEvent.create({
-            data: {
-              id: `${order.id}:placed`,
-              name: "OrderPlaced",
-              orderId: order.id,
-            },
-          });
-        return { order, created: true };
+        };
       },
       { maxWait: 5000, timeout: 10000 },
     );
   } catch (error) {
-    if ((error as { code?: string }).code === "P2002") {
+    const failure = error as {
+      code?: string;
+      meta?: {
+        code?: string;
+        driverAdapterError?: { cause?: { originalCode?: string } };
+      };
+    };
+    if (
+      failure.code === "P2002" ||
+      (failure.code === "P2010" &&
+        (failure.meta?.code === "23505" ||
+          failure.meta?.driverAdapterError?.cause?.originalCode === "23505"))
+    ) {
       const order = await db.order.findUnique({
         where: { idempotencyKey: input.idempotencyKey },
       });
@@ -205,11 +198,19 @@ export async function createOrder(input: CheckoutInput) {
 export async function changeOrder(
   id: string,
   version: number,
-  operation: OrderStatus | "DELETE" | "RESTORE",
+  operation: OrderStatus | "DELETE" | "RESTORE" | "PURGE",
 ) {
   return db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({ where: { id } });
     if (!order || order.version !== version) throw new Error("CONFLICT");
+    if (operation === "PURGE") {
+      if (!order.deletedAt) throw new Error("CONFLICT");
+      const removed = await tx.order.deleteMany({
+        where: { id, version, deletedAt: { not: null } },
+      });
+      if (!removed.count) throw new Error("CONFLICT");
+      return null;
+    }
     if (operation === "RESTORE") {
       if (!order.deletedAt) return null;
       const restored = await tx.order.updateMany({

@@ -10,10 +10,8 @@ import {
   RotateCcw,
   X,
   Package,
-  MapPin,
   Building2,
   Home,
-  ChevronDown,
   ArrowRight,
   AlertTriangle,
   SlidersHorizontal,
@@ -26,51 +24,60 @@ import {
   type OrderStatus,
 } from "@/lib/store-types";
 import BottleStack from "@/components/shared/bottle-stack";
+import AdminSelect from "../select";
+import Skeleton from "../skeleton";
 const statuses: Record<OrderStatus, string> = {
   NEW: "Nouvelle",
   CONFIRMED: "Confirmée",
   DELIVERED: "Livrée",
   CANCELED: "Annulée",
 };
+const statusOptions = ORDER_STATUSES.map((value) => ({
+  value,
+  label: statuses[value],
+}));
 export default function Orders({
   orders,
-  next,
+  next = null,
   stock,
-  baseline,
+  baseline = 0,
 }: {
-  orders: OrderRow[];
-  next: string | null;
-  stock: number;
-  baseline: number;
+  orders?: OrderRow[];
+  next?: string | null;
+  stock?: number;
+  baseline?: number;
 }) {
   const router = useRouter(),
-    params = useSearchParams(),
-    [pending, start] = useTransition(),
+    params = useSearchParams();
+  const [pending, start] = useTransition(),
     [error, setError] = useState(""),
     [query, setQuery] = useState(params.get("q") || ""),
-    [busy, setBusy] = useState<string | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null),
+    [busy, setBusy] = useState<string | null>(null),
+    [filtersOpen, setFiltersOpen] = useState(false),
     [deleting, setDeleting] = useState<OrderRow | null>(null);
-  const trash = params.get("tab") === "trash";
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const filterCount = ["status", "mode", "days"].filter((key) =>
-    params.get(key),
-  ).length;
+  const dialog = useRef<HTMLDialogElement>(null),
+    lastQuery = useRef(params.get("q") || "");
+  const trash = params.get("tab") === "trash",
+    filterCount = ["status", "mode", "days"].filter((key) =>
+      params.get(key),
+    ).length;
   function filter(key: string, value: string) {
     const p = new URLSearchParams(params.toString());
-    if (value) p.set(key, value);
-    else p.delete(key);
+    value ? p.set(key, value) : p.delete(key);
     if (key !== "cursor") p.delete("cursor");
     start(() => router.replace(`/admin/orders?${p}`, { scroll: false }));
   }
   useEffect(() => {
-    if (query === (params.get("q") || "")) return;
-    const timer = setTimeout(() => filter("q", query), 350);
+    if (query === lastQuery.current) return;
+    const timer = setTimeout(() => {
+      lastQuery.current = query;
+      filter("q", query);
+    }, 400);
     return () => clearTimeout(timer);
   }, [query]);
   async function change(
     order: OrderRow,
-    operation: OrderStatus | "DELETE" | "RESTORE",
+    operation: OrderStatus | "DELETE" | "RESTORE" | "PURGE",
   ) {
     setBusy(order.id);
     setError("");
@@ -84,17 +91,21 @@ export default function Orders({
       setBusy(null);
     }
   }
-  const low = stock === 0 || (baseline > 0 && stock / baseline < 0.05);
+  const low =
+      stock !== undefined &&
+      (stock === 0 || (baseline > 0 && stock / baseline < 0.05)),
+    loading = orders === undefined || pending;
   return (
     <>
       <div className="page-heading">
-        <div>
-          <h1>Les commandes</h1>
-          <p>Chaque commande, au bon endroit</p>
-        </div>
+        <h1>Les commandes</h1>
         <span className={`stock-chip ${low ? "is-low" : ""}`}>
           <Package size={17} />
-          {stock} flacons disponibles
+          {stock === undefined ? (
+            <Skeleton />
+          ) : (
+            <>{stock} flacons disponibles</>
+          )}
         </span>
       </div>
       {low && (
@@ -136,24 +147,22 @@ export default function Orders({
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal size={16} />
-              Filtres{filterCount > 0 ? ` (${filterCount})` : ""}
+              Filtres{filterCount ? ` (${filterCount})` : ""}
             </button>
           </div>
         </div>
         <div className="filter-bottom" id="order-filter-details">
           <label>
-            Statut
-            <select
+            <span>Statut</span>
+            <AdminSelect
+              label="Filtrer par statut"
               value={params.get("status") || ""}
-              onChange={(e) => filter("status", e.target.value)}
-            >
-              <option value="">Tous les statuts</option>
-              {ORDER_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statuses[s]}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Tous les statuts" },
+                ...statusOptions,
+              ]}
+              onChange={(v) => filter("status", v)}
+            />
           </label>
           <label>
             Livraison
@@ -181,27 +190,32 @@ export default function Orders({
             </span>
           </label>
           <label>
-            Période
-            <select
+            <span>Période</span>
+            <AdminSelect
+              label="Filtrer par période"
               value={params.get("days") || ""}
-              onChange={(e) => filter("days", e.target.value)}
-            >
-              <option value="">Toutes les dates</option>
-              <option value="7">7 derniers jours</option>
-              <option value="30">30 derniers jours</option>
-              <option value="90">90 derniers jours</option>
-            </select>
+              options={[
+                { value: "", label: "Toutes les dates" },
+                ...[7, 30, 90].map((n) => ({
+                  value: String(n),
+                  label: `${n} derniers jours`,
+                })),
+              ]}
+              onChange={(v) => filter("days", v)}
+            />
           </label>
           <label>
-            Ordre
-            <select
+            <span>Ordre</span>
+            <AdminSelect
+              label="Trier les commandes"
               value={params.get("sort") || "priority"}
-              onChange={(e) => filter("sort", e.target.value)}
-            >
-              <option value="priority">Nouvelles en priorité</option>
-              <option value="recent">Plus récentes</option>
-              <option value="oldest">Plus anciennes</option>
-            </select>
+              options={[
+                { value: "priority", label: "Nouvelles en priorité" },
+                { value: "recent", label: "Plus récentes" },
+                { value: "oldest", label: "Plus anciennes" },
+              ]}
+              onChange={(v) => filter("sort", v)}
+            />
           </label>
         </div>
       </section>
@@ -216,10 +230,59 @@ export default function Orders({
         </p>
       )}
       <div
-        className={`order-list ${pending ? "is-pending" : ""}`}
-        aria-busy={pending}
+        className="orders-table"
+        role="table"
+        aria-label="Commandes"
+        aria-busy={loading}
       >
-        {orders.length === 0 ? (
+        <div className="orders-table-head" role="row">
+          {[
+            "Produit",
+            "Client",
+            "Téléphone",
+            "Destination",
+            "Qté",
+            "Total",
+          ].map((label) => (
+            <span key={label} role="columnheader">
+              {label}
+            </span>
+          ))}
+        </div>
+        {loading ? (
+          Array.from({ length: 3 }, (_, i) => (
+            <div className="order-item" key={i} aria-hidden="true">
+              <div className="order-data-row">
+                {[
+                  "product",
+                  "client",
+                  "phone",
+                  "destination",
+                  "quantity",
+                  "total",
+                ].map((cell) => (
+                  <div
+                    className={`order-data-cell order-cell-${cell}`}
+                    key={cell}
+                  >
+                    {cell === "product" ? (
+                      <BottleStack quantity={1} small />
+                    ) : (
+                      <>
+                        <Skeleton />
+                        <Skeleton className="skeleton-short" />
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="order-actions">
+                <Skeleton className="skeleton-status" />
+                <Skeleton className="skeleton-status" />
+              </div>
+            </div>
+          ))
+        ) : orders!.length === 0 ? (
           <div className="admin-empty">
             <Package size={35} />
             <h2>
@@ -234,94 +297,116 @@ export default function Orders({
             </p>
           </div>
         ) : (
-          orders.map((order) => (
+          orders!.map((order) => (
             <article
               className="order-item"
+              role="rowgroup"
               key={order.id}
               aria-busy={busy === order.id}
             >
-              <div className="order-row">
-                <BottleStack quantity={order.quantity} small />
-                <div className="order-customer">
-                  <div>
-                    <span className="order-ref">{order.reference}</span>
-                    <time dateTime={order.createdAt}>
-                      {new Date(order.createdAt).toLocaleString("fr-DZ", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                        timeZone: "Africa/Algiers",
-                      })}
-                    </time>
-                  </div>
-                  <h2 dir="auto">{order.fullName}</h2>
-                  <a href={`tel:${order.phone}`} className="order-phone">
-                    <Phone size={14} />
-                    {order.phone}
+              <div className="order-data-row" role="row">
+                <div className="order-data-cell order-cell-product" role="cell">
+                  <BottleStack quantity={order.quantity} small />
+                </div>
+                <div
+                  className="order-data-cell order-cell-client"
+                  role="cell"
+                  data-label="Client"
+                >
+                  <strong dir="auto">{order.fullName}</strong>
+                  <span className="order-ref">{order.reference}</span>
+                  <time dateTime={order.createdAt}>
+                    {new Date(order.createdAt).toLocaleString("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                      timeZone: "Africa/Algiers",
+                    })}
+                  </time>
+                </div>
+                <div
+                  className="order-data-cell order-cell-phone"
+                  role="cell"
+                  data-label="Téléphone"
+                >
+                  <a href={`tel:${order.phone}`}>
+                    <Phone size={15} />
+                    <bdi>{order.phone}</bdi>
                   </a>
                 </div>
-                <div className="order-detail">
-                  <strong>{moneyDzd(order.totalCentimes)}</strong>
-                  <span>
-                    {order.quantity} flacon{order.quantity > 1 ? "s" : ""} ·
-                    livraison incluse
-                  </span>
-                </div>
-                <div className="order-location">
-                  <span>
+                <div
+                  className="order-data-cell order-cell-destination"
+                  role="cell"
+                  data-label="Destination"
+                >
+                  <strong>{order.wilayaName}</strong>
+                  <span>{order.communeName}</span>
+                  <small>
                     {order.deliveryMode === "HOME" ? (
-                      <Home size={17} />
+                      <Home size={14} />
                     ) : (
-                      <Building2 size={17} />
+                      <Building2 size={14} />
                     )}{" "}
                     {order.deliveryMode === "HOME" ? "À domicile" : "Stop desk"}
-                  </span>
-                  <span dir="auto">
-                    <MapPin size={14} />
-                    {order.wilayaName} · {order.communeName}
-                  </span>
+                  </small>
+                </div>
+                <div
+                  className="order-data-cell order-cell-quantity"
+                  role="cell"
+                  data-label="Quantité"
+                >
+                  <strong>× {order.quantity}</strong>
+                </div>
+                <div
+                  className="order-data-cell order-cell-total"
+                  role="cell"
+                  data-label="Total livré"
+                >
+                  <strong>{moneyDzd(order.totalCentimes)}</strong>
                 </div>
               </div>
               <div className="order-actions">
-                <label
-                  className={`status-select status-${order.status.toLowerCase()}`}
-                >
-                  <span className="sr-only">Statut de {order.reference}</span>
-                  <select
-                    value={order.status}
-                    disabled={trash || busy === order.id}
-                    onChange={(e) =>
-                      change(order, e.target.value as OrderStatus)
-                    }
-                  >
-                    {ORDER_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {statuses[s]}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} />
-                </label>
+                <AdminSelect
+                  className={`status-${order.status.toLowerCase()}`}
+                  label={`Statut de ${order.reference}`}
+                  value={order.status}
+                  options={statusOptions}
+                  disabled={trash || busy === order.id}
+                  onChange={(v) => change(order, v as OrderStatus)}
+                />
                 <div>
                   {trash ? (
-                    <button
-                      className="action-text"
-                      onClick={() => change(order, "RESTORE")}
-                      disabled={busy === order.id}
-                    >
-                      <RotateCcw size={17} />
-                      Restaurer
-                    </button>
+                    <>
+                      <button
+                        className="action-text"
+                        disabled={busy === order.id}
+                        onClick={() => change(order, "RESTORE")}
+                      >
+                        <RotateCcw size={17} />
+                        Restaurer
+                      </button>
+                      <button
+                        className="admin-icon-button delete-action"
+                        aria-label={`Supprimer définitivement ${order.reference}`}
+                        disabled={busy === order.id}
+                        onClick={() => {
+                          setDeleting(order);
+                          dialog.current?.showModal();
+                        }}
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </>
                   ) : (
                     <>
                       {order.status !== "CONFIRMED" &&
                         order.status !== "DELIVERED" && (
                           <button
                             className="action-text"
-                            onClick={() => change(order, "CONFIRMED")}
                             disabled={busy === order.id}
+                            onClick={() => change(order, "CONFIRMED")}
                           >
                             <Check size={17} />
                             Confirmer
@@ -330,8 +415,8 @@ export default function Orders({
                       {order.status === "CONFIRMED" && (
                         <button
                           className="action-text"
-                          onClick={() => change(order, "DELIVERED")}
                           disabled={busy === order.id}
+                          onClick={() => change(order, "DELIVERED")}
                         >
                           <Truck size={17} />
                           Livrée
@@ -347,11 +432,11 @@ export default function Orders({
                       <button
                         className="admin-icon-button delete-action"
                         aria-label={`Supprimer ${order.reference}`}
+                        disabled={busy === order.id}
                         onClick={() => {
                           setDeleting(order);
                           dialog.current?.showModal();
                         }}
-                        disabled={busy === order.id}
                       >
                         <Trash2 size={17} />
                       </button>
@@ -390,13 +475,23 @@ export default function Orders({
         >
           <X />
         </button>
-        <h2>Déplacer dans la corbeille ?</h2>
+        <h2>
+          {trash
+            ? "Supprimer définitivement ?"
+            : "Déplacer dans la corbeille ?"}
+        </h2>
         <p>
-          {deleting?.status === "DELIVERED"
-            ? "Cette commande livrée sera archivée sans modifier le stock"
-            : "Cette commande sera annulée et son stock sera rendu disponible"}
+          {trash
+            ? "Cette commande et ses données seront effacées définitivement, sans modifier le stock"
+            : deleting?.status === "DELIVERED"
+              ? "Cette commande livrée sera archivée sans modifier le stock"
+              : "Cette commande sera annulée et son stock sera rendu disponible"}
         </p>
-        <p>Vous pourrez la restaurer pendant 30 jours</p>
+        <p>
+          {trash
+            ? "Cette action est irréversible"
+            : "Vous pourrez la restaurer pendant 30 jours"}
+        </p>
         <div className="dialog-actions">
           <button
             className="admin-secondary"
@@ -407,7 +502,7 @@ export default function Orders({
           <button
             className="admin-primary"
             onClick={() => {
-              if (deleting) change(deleting, "DELETE");
+              if (deleting) change(deleting, trash ? "PURGE" : "DELETE");
               dialog.current?.close();
             }}
           >

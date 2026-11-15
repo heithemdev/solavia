@@ -1,7 +1,8 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { algeriaDay, PRODUCT_ID } from "./catalog";
+import { algeriaDay, getPublicProduct } from "./catalog";
+import destinations from "@/lib/data/algeria-fr.json";
 import { receiptOf } from "./orders";
 import { normalizeSearch } from "@/lib/order-policy";
 import { ORDER_STATUSES, type OrderRow } from "@/lib/store-types";
@@ -37,7 +38,7 @@ export const dashboardData = unstable_cache(
       totalRevenue: Number(all._sum.revenueCentimes || 0),
     };
   },
-  ["dashboard-metrics", process.env.DATABASE_SCHEMA || "public"],
+  ["dashboard-metrics"],
   { revalidate: 30, tags: ["solavia-metrics"] },
 );
 
@@ -96,31 +97,30 @@ export async function ordersData(params: Record<string, string | undefined>) {
           ],
         }
       : {};
+  const stockPromise = getPublicProduct();
   let rows;
   if (!params.sort || params.sort === "priority") {
-    const fresh =
+    const freshPromise =
       cursor && cursor.status !== "NEW"
-        ? []
-        : await db.order.findMany({
+        ? Promise.resolve([])
+        : db.order.findMany({
             where: { AND: [filter, { status: "NEW" }, seek("asc")] },
             orderBy: [{ createdAt: "asc" }, { id: "asc" }],
             take: 26,
           });
-    const other =
-      fresh.length >= 26
-        ? []
-        : await db.order.findMany({
-            where: {
-              AND: [
-                filter,
-                { status: { not: "NEW" } },
-                ...(cursor?.status !== "NEW" ? [seek("desc")] : []),
-              ],
-            },
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            take: 26 - fresh.length,
-          });
-    rows = [...fresh, ...other];
+    const otherPromise = db.order.findMany({
+      where: {
+        AND: [
+          filter,
+          { status: { not: "NEW" } },
+          ...(cursor?.status !== "NEW" ? [seek("desc")] : []),
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 26,
+    });
+    const [fresh, other] = await Promise.all([freshPromise, otherPromise]);
+    rows = [...fresh, ...other].slice(0, 26);
   } else
     rows = await db.order.findMany({
       where: { AND: [filter, seek(sort)] },
@@ -130,13 +130,18 @@ export async function ordersData(params: Record<string, string | undefined>) {
   const more = rows.length > 25;
   rows = rows.slice(0, 25);
   const last = rows.at(-1);
-  const product = await db.product.findUnique({
-    where: { id: PRODUCT_ID },
-    select: { stock: true, baselineStock: true },
-  });
+  const product = await stockPromise;
   return {
     orders: rows.map((row) => ({
       ...receiptOf(row),
+      wilayaName:
+        (destinations as Record<string, { wilaya: string; commune: string }>)[
+          row.communeId
+        ]?.wilaya || row.wilayaName,
+      communeName:
+        (destinations as Record<string, { wilaya: string; commune: string }>)[
+          row.communeId
+        ]?.commune || row.communeName,
       id: row.id,
       status: row.status,
       version: row.version,
