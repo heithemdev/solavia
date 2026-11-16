@@ -75,7 +75,7 @@ export default function LocationPicker({ id, label, placeholder, value, options,
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.currentTarget.close();
     }}>
       <div className="picker-heading"><h3 id={`${id}-dialog-title`}>{placeholder}</h3><button type="button" className="picker-close" onClick={() => dialog.current?.close()} aria-label="إغلاق"><X size={20} /></button></div>
-      <div className="picker-search"><Search size={19} aria-hidden="true" /><input autoFocus type="search" role="combobox" aria-label={`ابحث عن ${label}`} aria-controls={`${id}-list`} aria-expanded={open} aria-autocomplete="list" aria-activedescendant={filtered.length ? `${id}-option-${active}` : undefined} placeholder={`ابحث عن ${label}`} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); list.current?.scrollTo(0, 0); }} onKeyDown={(event) => {
+      <div className="picker-search"><Search size={19} aria-hidden="true" /><input type="search" role="combobox" aria-label={`ابحث عن ${label}`} aria-controls={`${id}-list`} aria-expanded={open} aria-autocomplete="list" aria-activedescendant={filtered.length ? `${id}-option-${active}` : undefined} placeholder={`ابحث عن ${label}`} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0); list.current?.scrollTo(0, 0); }} onKeyDown={(event) => {
         if ((event.key === "ArrowDown" || event.key === "ArrowUp") && filtered.length) {
           event.preventDefault();
           const next = (active + (event.key === "ArrowDown" ? 1 : -1) + filtered.length) % filtered.length;
