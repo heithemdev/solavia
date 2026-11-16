@@ -48,6 +48,8 @@ export async function createOrder(input: CheckoutInput) {
   if (
     !input ||
     typeof input.idempotencyKey !== "string" ||
+    typeof input.sessionId !== "string" ||
+    !/^[a-f0-9-]{36}$/i.test(input.sessionId) ||
     !/^[a-f0-9-]{36}$/i.test(input.idempotencyKey)
   )
     throw new Error("INVALID");
@@ -133,10 +135,10 @@ export async function createOrder(input: CheckoutInput) {
           WITH reserved AS (
             SELECT id FROM "Product" WHERE id=${PRODUCT_ID}
           ), customer AS (
-            INSERT INTO "Customer" (phone,number)
-            SELECT ${phone},COALESCE(MAX(number),0)+1 FROM "Customer"
+            INSERT INTO "Customer" (phone,"sessionKey",number)
+            SELECT ${phone},${hash(`${day.toISOString()}:${input.sessionId}`)},COALESCE(MAX(number),0)+1 FROM "Customer"
             WHERE EXISTS(SELECT 1 FROM reserved)
-            ON CONFLICT (phone) DO UPDATE SET phone=EXCLUDED.phone RETURNING number
+            ON CONFLICT (phone,"sessionKey") DO UPDATE SET phone=EXCLUDED.phone RETURNING number
           ), allocated AS (
             SELECT nextval(pg_get_serial_sequence('"Order"','number'))::integer AS number
           ), inserted AS (

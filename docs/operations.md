@@ -1,6 +1,6 @@
 # Solavia operations
 
-The storefront is static. Price and stock load after paint directly from PostgreSQL without a product cache. They refresh on page focus/visibility and cross-tab admin changes; checkout independently validates current database availability and price. Admin pages stream their static labels and layout immediately, with skeletons only where database values are pending. No polling, heartbeat, SSE, or WebSocket runs.
+The storefront is prerendered with price, stock, and public Pixel ID in the initial HTML. The product and landing page revalidate every 30 seconds; admin product/order changes invalidate the product cache immediately. Price and stock also refresh on page focus/visibility and cross-tab admin changes; overlapping refresh requests are deduplicated. Checkout independently validates current database availability and price. Admin pages stream their static labels and layout immediately, with skeletons only where database values are pending. No polling, heartbeat, SSE, or WebSocket runs.
 
 ## Setup and deployment
 
@@ -18,7 +18,7 @@ New orders keep immutable price snapshots and deduplicate retries, but do not re
 
 Checkout takes a product row lock to validate availability, then commits customer number, order, daily order count, and notification/event records in one SQL statement. Confirmation is the stock-reservation point. The client runs the pill animation for the entire request without a forced minimum delay. Push and Meta delivery begin after the response. Admins can permanently delete a trashed order through an explicit confirmation; this does not alter stock again. Daily visit counts are visible numerically as well as in the chart. The avatar menu includes PWA installation and platform-specific installation instructions when the browser has no native prompt.
 
-Customer numbers identify unique phone numbers and stay the same for repeat orders. The thank-you screen uses the saved receipt in client state for the customer's name and phone; it makes no extra Server Action request. The download is generated locally, and sharing never includes customer information.
+Customer numbers identify a phone number within a checkout session. Repeat orders for the same phone/session reuse the number; a new tab/session, 30 minutes without checkout activity, or a new Algerian calendar day allows a new number. The server also scopes the session to its current Algerian day. Historical numbers are preserved by the customer-sessions migration, which must run before deploying this checkout code (the Netlify build runs committed migrations). The thank-you screen uses the saved receipt in client state for the customer's name and phone; it makes no extra Server Action request. The download is generated locally, and sharing never includes customer information.
 
 Dashboard revenue includes confirmed/delivered orders only, excluding shipping. Cancellation subtracts that order from revenue on its original order day and returns stock only if that order had reserved it. NEW and canceled orders contribute zero revenue. The stock warning is based on 5% of the last quantity explicitly saved by the admin.
 

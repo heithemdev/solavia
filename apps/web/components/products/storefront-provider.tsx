@@ -59,22 +59,28 @@ export function marketingCookie(name: string) {
 }
 export default function StorefrontProvider({
   children,
+  initialProduct,
+  initialPixelId,
 }: {
   children: React.ReactNode;
+  initialProduct: ProductInfo | null;
+  initialPixelId: string | null;
 }) {
-  const [product, updateProduct] = useState<ProductInfo | null>(null),
-    [loaded, setLoaded] = useState(false),
+  const [product, updateProduct] = useState<ProductInfo | null>(initialProduct),
+    [loaded, setLoaded] = useState(true),
     [error, setError] = useState(false),
-    [pixelId, setPixelId] = useState<string | null>(null),
+    [pixelId, setPixelId] = useState<string | null>(initialPixelId),
     [choice, setChoice] = useState<string | null>(null),
     [ready, setReady] = useState(false);
   const request = useRef<AbortController | null>(null);
   const setProduct = useCallback((value: ProductInfo | null) => {
     request.current?.abort();
+    request.current = null;
     updateProduct(value);
   }, []);
   const refresh = useCallback(() => {
-    request.current?.abort();
+    // Focus and visibility events often fire together; share the pending request.
+    if (request.current) return;
     const controller = new AbortController();
     request.current = controller;
     fetch("/api/storefront", { signal: controller.signal, cache: "no-store" })
@@ -91,13 +97,14 @@ export default function StorefrontProvider({
       .catch((e) => {
         if (e.name !== "AbortError") {
           setError(true);
-          updateProduct(null);
           setLoaded(true);
         }
+      })
+      .finally(() => {
+        if (request.current === controller) request.current = null;
       });
   }, []);
   useEffect(() => {
-    refresh();
     const visible = () => {
       if (document.visibilityState === "visible") refresh();
     };

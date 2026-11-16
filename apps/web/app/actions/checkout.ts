@@ -15,7 +15,6 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
   try {
     await limit("checkout", await requestIp(), 12, 600);
     const result = await createOrder(input);
-    invalidateProduct();
     invalidateMetrics();
     const origin = (await headers()).get("origin") || "https://solavia.store";
     if (result.created)

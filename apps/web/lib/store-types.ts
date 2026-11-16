@@ -37,6 +37,7 @@ export type OrderRow = Receipt & {
   deletedAt: string | null;
 };
 export type CheckoutInput = {
+  sessionId: string;
   idempotencyKey: string;
   firstName: string;
   lastName: string;

@@ -94,8 +94,11 @@ model Order {
 }
 
 model Customer {
-  phone String @id @db.VarChar(10)
+  phone String @db.VarChar(10)
+  sessionKey String @default("legacy") @db.VarChar(64)
   number Int @unique
+
+  @@id([phone, sessionKey])
 }
 
 // Static credentials remain in environment variables

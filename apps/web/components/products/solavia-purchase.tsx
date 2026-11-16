@@ -26,6 +26,8 @@ import {
 } from "@/lib/notification-audio";
 const OrderSuccess = dynamic(() => import("./order-success"));
 import wilayas from "@/lib/data/algeria-58.json";
+import frenchDestinations from "@/lib/data/algeria-fr.json";
+import { checkoutSession } from "@/lib/checkout-session";
 import {
   DELIVERY_PRICES,
   getDeliveryPrice,
@@ -183,6 +185,7 @@ export default function SolaviaPurchase() {
     }
     const fields = new FormData(form);
     const details = {
+      sessionId: checkoutSession(),
       firstName: String(fields.get("firstName") || ""),
       lastName: String(fields.get("lastName") || ""),
       phone: String(fields.get("phone") || ""),
@@ -337,7 +340,11 @@ export default function SolaviaPurchase() {
                     placeholder="اختر البلدية"
                     value={communeId}
                     options={(selectedWilaya?.communes ?? []).map(
-                      (commune) => ({ value: commune.id, label: commune.name }),
+                      (commune) => ({
+                        value: commune.id,
+                        label: commune.name,
+                        searchText: frenchDestinations[commune.id as keyof typeof frenchDestinations]?.commune,
+                      }),
                     )}
                     disabled={!selectedWilaya}
                     invalid={locationError && !communeId}

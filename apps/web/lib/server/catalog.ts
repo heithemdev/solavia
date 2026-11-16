@@ -5,7 +5,7 @@ import type { ProductInfo } from "@/lib/store-types";
 
 import { PRODUCT_ID } from "@/lib/order-policy";
 export { PRODUCT_ID, algeriaDay } from "@/lib/order-policy";
-export async function getPublicProduct(): Promise<ProductInfo | null> {
+export const getPublicProduct = unstable_cache(async (): Promise<ProductInfo | null> => {
   const product = await db.product.findUnique({
     where: { id: PRODUCT_ID },
     select: {
@@ -19,7 +19,7 @@ export async function getPublicProduct(): Promise<ProductInfo | null> {
     },
   });
   return product;
-}
+}, ["solavia-product"], { revalidate: 30, tags: ["solavia-product"] });
 export const getPublicPixel = unstable_cache(
   async () => {
     const settings = await db.metaSettings.findUnique({
