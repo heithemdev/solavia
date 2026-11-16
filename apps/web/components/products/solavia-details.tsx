@@ -74,11 +74,11 @@ export default function SolaviaDetails() {
     <section className="solavia-promises" id="promises" aria-labelledby="promises-title">
       <div className="promise-leaves falling-leaves" aria-hidden="true"><Image className="falling-leaf leaf-soft" src="/images/solavia/botanical/leaf.webp" alt="" width={260} height={260} unoptimized /><Image className="falling-leaf leaf-sharp" src="/images/solavia/botanical/leaf.webp" alt="" width={260} height={260} unoptimized /></div>
       <div className="promises-inner">
-        <div className="promise-intro"><h2 id="promises-title">وعدنا لك</h2><p>أن نمنح راحتك الاهتمام الذي تستحقّه، بمستخلصات نباتية تجمع الأشواغاندا والمليسة في تركيبة تُحضّر في مختبر</p><p>دعم للاسترخاء، ووقت أهدأ تستعيد فيه مساحتك بعد انشغال اليوم، مع استجابة تختلف من شخص لآخر</p></div>
+        <div className="promise-intro"><h2 id="promises-title">نعدك</h2><p>أن نمنح راحتك الاهتمام الذي تستحقّه، بمستخلصات نباتية تجمع الأشواغاندا والمليسة</p><p>دعم للاسترخاء، ووقت أهدأ تستعيد فيه مساحتك بعد انشغال اليوم، مع استجابة تختلف من شخص لآخر</p></div>
         <div className="promise-grid">
           <article><h3>ضغط أقلّ على يومك</h3><p>الأشواغاندا من المستخلصات المدروسة للمساعدة على تخفيف الشعور بالتوتر، وهو ما نبحث عنه لدعم راحتك اليومية</p></article>
           <article><h3>استراحة تشعر بها</h3><p>وقت العمل ينتهي، ويستحقّ وقتك الخاص أن يبدأ بهدوء، مع المليسة المستخدمة تقليديًا لدعم الاسترخاء</p></article>
-          <article><h3>مكان للراحة قبل النوم</h3><p>قد تدعم بعض مستخلصات الأشواغاندا جودة النوم، مع روتين منتظم ومساء أقلّ انشغالًا</p></article>
+          <article><h3>مكان للراحة قبل النوم</h3><p>تساعد الأشواغاندا على تحسين جودة النوم، مع روتين منتظم ومساء أقلّ انشغالًا</p></article>
           <article><h3>عناية تجد مكانها في يومك</h3><p>60 كبسولة تُضاف إلى روتين يضمّ الاستراحة والنوم المنتظم، لتمنح نفسك اهتمامًا يتجاوز لحظات الضغط</p></article>
         </div>
       </div>

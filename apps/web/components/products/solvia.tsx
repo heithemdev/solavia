@@ -367,8 +367,8 @@ export default function Solvia() {
         </div>
           <div className="ingredients-copy" id="ingredients">
             <h2 id="ingredients-title">للاسترخاء وهدوء البال</h2>
-            <p className="ingredients-intro"><bdi lang="en">SHAYA BIO</bdi> مكمّل غذائي يُحضّر في مختبر، بمستخلصات الأشواغاندا والمليسة ونبتة سانت جون لدعم الاسترخاء والتوازن النفسي</p>
-            <p className="ingredients-body">قد تساعد الأشواغاندا على تخفيف الشعور بالتوتر وتحسين جودة النوم، وتُستخدم المليسة تقليديًا للتهدئة والمساعدة على النوم</p>
+            <p className="ingredients-intro"><bdi lang="en">SHAYA BIO</bdi> مكمّل غذائي بمستخلصات الأشواغاندا والمليسة ونبتة سانت جون لدعم الاسترخاء والتوازن النفسي</p>
+            <p className="ingredients-body">تساعد الأشواغاندا على تخفيف الشعور بالتوتر وتحسين جودة النوم، وتساعد المليسة على التهدئة والنوم</p>
             <p className="ingredients-body">حين تهدأ، تمنح نفسك وقتًا للتفكير قبل القرار، حتى في المواقف الصعبة، وتترك لراحتك مساحة بعد العمل أو الدراسة</p>
           </div>
         </div>
